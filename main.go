@@ -48,6 +48,16 @@ func sendJSON(conn *websocket.Conn, message interface{}) {
 	}
 }
 
+func sendBackDataPack(conn *websocket.Conn, command string, status string, message string, content interface{}) {
+	response := map[string]interface{}{
+		"command": command,
+		"status":  status,
+		"message": message,
+		"content": content,
+	}
+	sendJSON(conn, response)
+}
+
 func wsProcessor(w http.ResponseWriter, r *http.Request) {
 	upgrade.CheckOrigin = func(r *http.Request) bool { return true }
 	ws, err := upgrade.Upgrade(w, r, nil)
@@ -128,7 +138,7 @@ func reader(conn *websocket.Conn) {
 				password, ok := params["password"].(string)
 				deviceType, ok := params["deviceType"].(float64)
 				if !ok {
-					sendJSON(thisUser.connection, map[string]interface{}{"command": "login", "status": "error", "message": "无效的参数"})
+					sendBackDataPack(thisUser.connection, "login", "error", "无效的参数", nil)
 					continue
 				}
 				thisUser.userId = int(userID)
@@ -139,44 +149,44 @@ func reader(conn *websocket.Conn) {
 				switch {
 				case errors.Is(err, sql.ErrNoRows):
 					logger.Info("用户不存在")
-					sendJSON(thisUser.connection, map[string]interface{}{"command": "login", "status": "error", "message": "用户不存在"})
+					sendBackDataPack(thisUser.connection, "login", "error", "用户不存在", nil)
 				case err != nil:
 					logger.Info("查询错误:", err)
-					sendJSON(thisUser.connection, map[string]interface{}{"command": "login", "status": "error", "message": fmt.Sprintf("查询错误:%v", err)})
+					sendBackDataPack(thisUser.connection, "login", "error", fmt.Sprintf("查询错误:%v", err), nil)
 				default:
 					if storedPassword == password {
 						logger.Info("登录成功")
-						sendJSON(thisUser.connection, map[string]interface{}{"command": "login", "status": "success", "message": "登录成功", "userId": thisUser.userId, "userName": thisUser.userName, "userTag": thisUser.tag})
+						sendBackDataPack(thisUser.connection, "login", "success", "登录成功", map[string]interface{}{"userId": thisUser.userId, "userName": thisUser.userName, "userTag": thisUser.tag})
 						thisUser.loginState = true
 						onlineUsers[thisUser.userId] = onlineDate{thisUser.userId, thisUser.deviceType, thisUser.userName, thisUser.connection}
 						err := sendMessageFromDB(thisUser.userId)
 						if err != nil {
 							logger.Info("拉取缓存错误：", err)
-							sendJSON(thisUser.connection, map[string]interface{}{"command": "login", "status": "error", "message": "拉取缓存错误"})
+							sendBackDataPack(thisUser.connection, "login", "error", "拉取缓存错误", nil)
 							return
 						}
 					} else {
 						logger.Info("密码不匹配")
-						sendJSON(thisUser.connection, map[string]interface{}{"command": "login", "status": "error", "message": "密码不匹配"})
+						sendBackDataPack(thisUser.connection, "login", "error", "密码不匹配", nil)
 					}
 				}
 
 			case "register":
 				userName, ok := params["userName"].(string)
 				if !ok {
-					sendJSON(conn, map[string]interface{}{"command": "register", "status": "error", "message": "无效的用户名"})
+					sendBackDataPack(conn, "register", "error", "无效的用户名", nil)
 					return
 				}
 
 				deviceType, ok := params["deviceType"].(float64)
 				if !ok {
-					sendJSON(conn, map[string]interface{}{"command": "register", "status": "error", "message": "无效的设备类型"})
+					sendBackDataPack(conn, "register", "error", "无效的设备类型", nil)
 					return
 				}
 
 				userPassword, ok := params["userPassword"].(string)
 				if !ok {
-					sendJSON(conn, map[string]interface{}{"command": "register", "status": "error", "message": "无效的密码"})
+					sendBackDataPack(conn, "register", "error", "无效的密码", nil)
 					return
 				}
 
@@ -188,39 +198,39 @@ func reader(conn *websocket.Conn) {
 					result, err = db.Exec("INSERT INTO UserBasicData (userName, deviceType, userPassword, teachingClass) VALUES (?, ?, ?, ?)", userName, int(deviceType), userPassword, "[]")
 				}
 				if err != nil {
-					logger.Info("插入记录失败:", err)
-					sendJSON(conn, map[string]interface{}{"command": "register", "status": "error", "message": fmt.Sprintf("插入记录失败:%v", err)})
+					logger.Error("插入记录失败:", err)
+					sendBackDataPack(conn, "register", "error", "插入记录失败", nil)
 					return
 				}
 
 				id, _ := result.LastInsertId()
-				logger.Info("用户 %s 插入成功，ID：%d", userName, id)
-				sendJSON(conn, map[string]interface{}{"command": "register", "status": "success", "message": fmt.Sprintf("用户 %s 插入成功，ID：%d", userName, id)})
+				sendBackDataPack(conn, "register", "success", fmt.Sprintf("用户 %s 插入成功，ID：%d", userName, id), nil)
 
 				teacherTag, ok := params["tag"].(string)
 				if ok && teacherTag != "" {
 					_, err := db.Exec("UPDATE UserBasicData SET tag = ? WHERE userID = ?", teacherTag, id)
 					if err != nil {
 						logger.Info("插入tag失败:", err)
-						sendJSON(conn, map[string]interface{}{"command": "register", "status": "error", "message": fmt.Sprintf("插入tag失败:%v", err)})
+						sendBackDataPack(conn, "register", "error", fmt.Sprintf("插入tag失败:%v", err), nil)
 						return
 					}
 					logger.Info("tag: %s", teacherTag)
-					sendJSON(conn, map[string]interface{}{"command": "register", "status": "success", "message": fmt.Sprintf("tag: %s", teacherTag)})
+					sendBackDataPack(conn, "register", "success", fmt.Sprintf("tag: %s", teacherTag), nil)
 				}
+
 			default:
 				logger.Info("无权限执行命令:", msg.Command)
-				sendJSON(conn, map[string]interface{}{"command": "register", "status": "error", "message": "无权限执行命令"})
+				sendBackDataPack(conn, msg.Command, "error", "无权限执行命令", nil)
 			}
 		} else {
 			switch msg.Command {
 			case "logout":
 				delete(onlineUsers, thisUser.userId)
-				sendJSON(conn, map[string]interface{}{"command": "logout", "status": "success", "message": "完成"})
+				sendBackDataPack(conn, "logout", "success", "完成", nil)
 			case "getOnlineUser":
-				userID, ok := params["id"].(float64)
+				userID, ok := params["userId"].(float64)
 				if !ok {
-					sendJSON(conn, map[string]interface{}{"command": "getOnlineUser", "status": "error", "message": "无效的id"})
+					sendBackDataPack(conn, "getOnlineUser", "error", "无效的id", nil)
 					return
 				}
 
@@ -236,8 +246,7 @@ func reader(conn *websocket.Conn) {
 						return
 					}
 				}
-				sendJSON(conn, map[string]interface{}{"command": "getOnlineUser", "status": "success",
-					"content": map[string]interface{}{"online": online, "userId": userID, "userName": userName}})
+				sendBackDataPack(conn, "getOnlineUser", "success", "", map[string]interface{}{"online": online, "userId": userID, "userName": userName})
 			case "getTeachingClasses":
 				rows, err := db.Query("SELECT teachingClass FROM UserBasicData WHERE userID = ?", thisUser.userId)
 				if err != nil {
