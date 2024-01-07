@@ -1,9 +1,8 @@
 package jsonprovider
 
 import (
-	"logger"
-
 	jsoniter "github.com/json-iterator/go"
+	"logger"
 )
 
 func ParseJSON(jsonByte []byte, target interface{}) {
