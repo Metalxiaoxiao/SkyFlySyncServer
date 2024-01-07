@@ -6,11 +6,12 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	_ "github.com/go-sql-driver/mysql"
-	"github.com/gorilla/websocket"
 	"log"
 	"net/http"
 	"time"
+
+	_ "github.com/go-sql-driver/mysql"
+	"github.com/gorilla/websocket"
 )
 
 type onlineDate struct {
@@ -100,6 +101,7 @@ func reader(conn *websocket.Conn) {
 		userName   string
 		deviceType int
 		loginState bool
+		tag        string
 		connection *websocket.Conn
 	}{
 		connection: conn,
@@ -146,8 +148,8 @@ func reader(conn *websocket.Conn) {
 				}
 
 				var storedPassword string
-				query := "SELECT userPassword,userName FROM UserBasicData WHERE userID=?"
-				err := db.QueryRow(query, thisUser.userId).Scan(&storedPassword, &thisUser.userName)
+				query := "SELECT userPassword,userName,tag FROM UserBasicData WHERE userID=?"
+				err := db.QueryRow(query, thisUser.userId).Scan(&storedPassword, &thisUser.userName, &thisUser.tag)
 				switch {
 				case errors.Is(err, sql.ErrNoRows):
 					fmt.Println("用户不存在")
@@ -159,7 +161,7 @@ func reader(conn *websocket.Conn) {
 					// 检查密码是否匹配
 					if storedPassword == password {
 						fmt.Println("登录成功")
-						sendJSON(thisUser.connection, map[string]interface{}{"command": "login", "status": "success", "message": "登录成功"})
+						sendJSON(thisUser.connection, map[string]interface{}{"command": "login", "status": "success", "message": "登录成功", "userId": thisUser.userId, "userName": thisUser.userName, "userTag": thisUser.tag})
 						thisUser.loginState = true
 						onlineUsers[thisUser.userId] = onlineDate{thisUser.userId, thisUser.deviceType, thisUser.userName, thisUser.connection}
 						err := sendMessageFromDB(thisUser.userId)
@@ -237,7 +239,15 @@ func reader(conn *websocket.Conn) {
 
 				_, online := onlineUsers[int(userID)]
 				sendJSON(conn, map[string]interface{}{"command": "getOnlineUser", "status": "success", "result": online})
-
+			case "getTeachingClasses":
+				var JSONText string
+				query := "SELECT teachingClass FROM UserBasicData WHERE userID=?"
+				err := db.QueryRow(query, thisUser.userId).Scan(&JSONText)
+				if err != nil {
+					sendJSON(conn, map[string]interface{}{"command": "getTeachingClasses", "status": "success", "content": JSONText})
+				} else {
+					sendJSON(conn, map[string]interface{}{"command": "getTeachingClasses", "status": "error", "message": err})
+				}
 			case "addClass":
 				addingClass, ok := params["class"].(string)
 				if !ok {
@@ -307,7 +317,7 @@ var db *sql.DB
 func init() {
 	// 初始化数据库连接
 	var err error
-	db, err = sql.Open("mysql", "root:root@tcp(localhost:3306)/skyflysyncdb")
+	db, err = sql.Open("mysql", "root:12345678@tcp(localhost:3306)/skyflysyncdb")
 	if err != nil {
 		fmt.Println("数据库连接失败:", err)
 		return
