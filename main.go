@@ -2,6 +2,7 @@ package main
 
 import (
 	filesystem "SkyFlySyncServer/filesystem"
+	"config"
 	"database/sql"
 	"encoding/json"
 	"errors"
@@ -313,26 +314,34 @@ func reader(conn *websocket.Conn) {
 }
 
 func setupRoutes() {
-	http.HandleFunc("/ws", wsProcessor)
-	http.HandleFunc("/upload", filesystem.HandleFileUpload)
-	http.HandleFunc("/download/", filesystem.HandleFileDownload)
+	http.HandleFunc(Config.WebSocketServiceRote, wsProcessor)
+	http.HandleFunc(Config.UploadServiceRote, filesystem.HandleFileUpload)
+	http.HandleFunc(Config.DownloadServiceRote, filesystem.HandleFileDownload)
 }
 
 var db *sql.DB
 
+var Config config.Config
+
 func init() {
 	// 初始化数据库连接
 	var err error
-	db, err = sql.Open("mysql", "root:12345678@tcp(localhost:3306)/skyflysyncdb")
+	Config, err = config.LoadConfig("Config.json")
 	if err != nil {
-		fmt.Println("数据库连接失败:", err)
+		logger.Error("读取配置文件错误:", err)
+		return
+	}
+	logger.SetLogLevel(logger.LogLevel(Config.LogLevel))
+	logger.Info("日志等级被设置为config.LogLevel")
+
+	// 初始化数据库连接
+	db, err = sql.Open("mysql", fmt.Sprintf("%s:%s@tcp(%s)/skyflysyncdb", Config.DataBaseSettings.Account, Config.DataBaseSettings.Password, Config.DataBaseSettings.Address))
+	if err != nil {
+		logger.Error("Database connection failed:", err)
 		return
 	}
 }
-
 func main() {
-	logger.SetLogLevel(logger.DebugLevel)
-	logger.Info("日志等级被设置为DebugLevel")
 	setupRoutes()
 	_PORT := ":8900"
 	logger.Info("服务器启动成功！端口", _PORT)
