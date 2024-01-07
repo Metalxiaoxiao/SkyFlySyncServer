@@ -237,17 +237,40 @@ func reader(conn *websocket.Conn) {
 					return
 				}
 
-				_, online := onlineUsers[int(userID)]
-				sendJSON(conn, map[string]interface{}{"command": "getOnlineUser", "status": "success", "result": online})
-			case "getTeachingClasses":
-				var JSONText string
-				query := "SELECT teachingClass FROM UserBasicData WHERE userID=?"
-				err := db.QueryRow(query, thisUser.userId).Scan(&JSONText)
-				if err != nil {
-					sendJSON(conn, map[string]interface{}{"command": "getTeachingClasses", "status": "success", "content": JSONText})
+				selectrdUser, online := onlineUsers[int(userID)]
+				var userName string
+				if online {
+					userName = selectrdUser.Username
 				} else {
-					sendJSON(conn, map[string]interface{}{"command": "getTeachingClasses", "status": "error", "message": err})
+					query := "SELECT userName FROM UserBasicData WHERE userID=?"
+					err := db.QueryRow(query, thisUser.userId).Scan(userName)
+					if err != nil {
+						sendJSON(conn, map[string]interface{}{"command": "getOnlineUser", "status": "error", "message": "数据库查询错误"})
+						return
+					}
 				}
+				sendJSON(conn, map[string]interface{}{"command": "getOnlineUser", "status": "success", "result": online, "userId": userID, "userName": userName})
+			case "getTeachingClasses":
+				rows, err := db.Query("SELECT teachingClass FROM UserBasicData WHERE userID = ?", thisUser.userId)
+				if err != nil {
+					fmt.Println("查询班级信息失败:", err)
+					sendJSON(conn, map[string]interface{}{"command": "getTeachingClasses", "status": "error", "message": fmt.Sprintf("查询班级信息失败:%v", err)})
+					return
+				}
+				defer rows.Close()
+
+				// 读取查询结果
+				var teachingClass string
+				if rows.Next() {
+					if err := rows.Scan(&teachingClass); err != nil {
+						fmt.Println("扫描班级信息失败:", err)
+						sendJSON(conn, map[string]interface{}{"command": "getTeachingClasses", "status": "error", "message": fmt.Sprintf("扫描班级信息失败:%v", err)})
+						return
+					}
+				}
+
+				// 发送教学班级信息给客户端
+				sendJSON(conn, map[string]interface{}{"command": "getTeachingClasses", "status": "success", "teachingClass": teachingClass})
 			case "addClass":
 				addingClass, ok := params["class"].(string)
 				if !ok {
