@@ -67,9 +67,21 @@ func HandleFileUpload(w http.ResponseWriter, r *http.Request) {
 		}
 	}(file)
 
+	if handler == nil {
+		logger.Error("无效的文件处理程序")
+		http.Error(w, "无效的文件处理程序", http.StatusBadRequest)
+		return
+	}
+
 	if err := os.MkdirAll(uploadDirectory, os.ModePerm); err != nil {
 		logger.Error("创建上传目录时发生错误: %v", err)
 		http.Error(w, "创建上传目录时发生错误", http.StatusInternalServerError)
+		return
+	}
+
+	if handler.Filename == "" {
+		logger.Error("文件名为空")
+		http.Error(w, "文件名为空", http.StatusBadRequest)
 		return
 	}
 
@@ -93,6 +105,7 @@ func HandleFileUpload(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	file.Close()
 	file, err = os.Open(filePath)
 	if err != nil {
 		logger.Error("重新打开文件时发生错误: %v", err)
@@ -118,6 +131,13 @@ func HandleFileUpload(w http.ResponseWriter, r *http.Request) {
 	if err := CopyAndRenameFile(filePath, newFilePath); err != nil {
 		logger.Error("重命名文件时发生错误: %v", err)
 		http.Error(w, "重命名文件时发生错误", http.StatusInternalServerError)
+		return
+	}
+
+	// 删除原始文件
+	if err := os.Remove(filePath); err != nil {
+		logger.Error("删除原始文件时发生错误: %v", err)
+		http.Error(w, "删除原始文件时发生错误", http.StatusInternalServerError)
 		return
 	}
 

@@ -281,6 +281,8 @@ func reader(conn *websocket.Conn) {
 					logger.Info("添加班级成功")
 					sendJSON(conn, map[string]interface{}{"command": "addClass", "status": "success", "message": "添加班级成功"})
 				}
+			case "deleteClass":
+				//TODO
 			case "sendMessage":
 				var responseMessage string
 				var recipientID = int(params["recipient"].(float64))

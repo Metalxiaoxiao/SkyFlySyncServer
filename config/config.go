@@ -112,7 +112,7 @@ func writeConfigToFile(file *os.File, config Config) error {
 func getDefaultConfig() Config {
 	// 设置默认配置
 	defaultConfig := Config{
-		LogLevel: 2,
+		LogLevel: 0,
 		Port:     "8900",
 		DataBaseSettings: struct {
 			Address  string `json:"address"`
