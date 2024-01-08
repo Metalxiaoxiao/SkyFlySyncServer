@@ -10,6 +10,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"time"
 )
 
 const uploadDirectory = "./uploads"
@@ -135,6 +136,7 @@ func HandleFileUpload(w http.ResponseWriter, r *http.Request) {
 	}
 	// 关闭原始文件
 	file.Close()
+	time.Sleep(300 * time.Millisecond)
 
 	// 删除原始文件
 	if err := os.Remove(filePath); err != nil {
