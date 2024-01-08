@@ -5,8 +5,7 @@
   </component>
   <component name="ChangeListManager">
     <list default="true" id="823872f3-fd95-451f-b00b-a01c30fd7c6b" name="更改" comment="">
-      <change beforePath="$PROJECT_DIR$/SkyFlySyncServer.exe" beforeDir="false" afterPath="$PROJECT_DIR$/SkyFlySyncServer.exe" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/filesystem/filesystem.go" beforeDir="false" afterPath="$PROJECT_DIR$/filesystem/filesystem.go" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/main.go" beforeDir="false" afterPath="$PROJECT_DIR$/main.go" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />

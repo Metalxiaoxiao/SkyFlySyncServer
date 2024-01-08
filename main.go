@@ -204,7 +204,7 @@ func reader(conn *websocket.Conn) {
 				}
 
 				id, _ := result.LastInsertId()
-				sendBackDataPack(conn, "register", "success", fmt.Sprintf("用户 %s 插入成功，ID：%d", userName, id), nil)
+				sendBackDataPack(conn, "register", "success", fmt.Sprintf("用户 %s 插入成功，ID：%d", userName, id), map[string]interface{}{"userName": userName, "userId": id})
 
 				teacherTag, ok := params["tag"].(string)
 				if ok && teacherTag != "" {
