@@ -135,7 +135,7 @@ func reader(conn *websocket.Conn) {
 			switch msg.Command {
 			case "login":
 				userID, ok := params["userId"].(float64)
-				password, ok := params["password"].(string)
+				password, ok := params["userPassword"].(string)
 				deviceType, ok := params["deviceType"].(float64)
 				if !ok {
 					sendBackDataPack(thisUser.connection, "login", "error", "无效的参数", nil)
