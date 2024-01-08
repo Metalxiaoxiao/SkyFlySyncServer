@@ -192,11 +192,10 @@ func reader(conn *websocket.Conn) {
 
 				userTag, ok := params["userTag"].(string)
 				var result sql.Result
-				if ok {
-					result, err = db.Exec("INSERT INTO UserBasicData (userName, deviceType, userPassword, teachingClass, tag) VALUES (?, ?, ?, ?, ?)", userName, int(deviceType), userPassword, "[]", userTag)
-				} else {
-					result, err = db.Exec("INSERT INTO UserBasicData (userName, deviceType, userPassword, teachingClass) VALUES (?, ?, ?, ?)", userName, int(deviceType), userPassword, "[]")
+				if !ok {
+					userTag = "无标签"
 				}
+				result, err = db.Exec("INSERT INTO UserBasicData (userName, deviceType, userPassword, teachingClass, tag) VALUES (?, ?, ?, ?, ?)", userName, int(deviceType), userPassword, "[]", userTag)
 				if err != nil {
 					logger.Error("插入记录失败:", err)
 					sendBackDataPack(conn, "register", "error", "插入记录失败", nil)
