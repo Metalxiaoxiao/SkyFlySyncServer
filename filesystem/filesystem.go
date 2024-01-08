@@ -10,7 +10,6 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
-	"time"
 )
 
 const uploadDirectory = "./uploads"
@@ -55,6 +54,7 @@ func CopyAndRenameFile(filePath, newFilePath string) error {
 
 // HandleFileUpload 处理文件上传
 func HandleFileUpload(w http.ResponseWriter, r *http.Request) {
+
 	file, handler, err := r.FormFile("file")
 	if err != nil {
 		logger.Error("无法获取文件: %v", err)
@@ -85,8 +85,8 @@ func HandleFileUpload(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "文件名为空", http.StatusBadRequest)
 		return
 	}
-
 	filePath := filepath.Join(uploadDirectory, handler.Filename)
+	logger.Error("用户正在上传文件", filePath)
 	dst, err := os.Create(filePath)
 	if err != nil {
 		logger.Error("在服务器上创建文件时发生错误: %v", err)
@@ -113,7 +113,6 @@ func HandleFileUpload(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "重新打开文件时发生错误", http.StatusInternalServerError)
 		return
 	}
-	defer file.Close()
 
 	hasher := sha256.New()
 	if _, err := io.Copy(hasher, file); err != nil {
@@ -134,18 +133,15 @@ func HandleFileUpload(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "重命名文件时发生错误", http.StatusInternalServerError)
 		return
 	}
-	// 关闭原始文件
-	file.Close()
-	time.Sleep(300 * time.Millisecond)
-
 	// 删除原始文件
-	if err := os.Remove(filePath); err != nil {
-		logger.Error("删除原始文件时发生错误: %v", err)
-		http.Error(w, "删除原始文件时发生错误", http.StatusInternalServerError)
-		return
-	}
+	defer func(filePath string) {
+		if err := os.Remove(filePath); err != nil {
+			logger.Error("删除原始文件时发生错误: %v", err)
+			return
+		}
+	}(filePath)
 
-	_, err = fmt.Fprintf(w, "文件 %s 上传成功", newFileName)
+	_, err = fmt.Fprintf(w, "%s", newFileName)
 	if err != nil {
 		logger.Error("写入成功响应时发生错误: %v", err)
 	}
