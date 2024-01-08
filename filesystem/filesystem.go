@@ -133,6 +133,8 @@ func HandleFileUpload(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "重命名文件时发生错误", http.StatusInternalServerError)
 		return
 	}
+	// 关闭原始文件
+	file.Close()
 
 	// 删除原始文件
 	if err := os.Remove(filePath); err != nil {
