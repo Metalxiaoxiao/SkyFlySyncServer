@@ -40,7 +40,7 @@ func sendJSON(conn *websocket.Conn, message interface{}) {
 		logger.Error("JSON转码错误:", err)
 		return
 	}
-
+	logger.Info("用户发送消息，转发包体为:", err)
 	err = conn.WriteMessage(websocket.TextMessage, jsonData)
 	if err != nil {
 		logger.Error("发送消息出现错误:", err)
@@ -166,7 +166,7 @@ func reader(conn *websocket.Conn) {
 							return
 						}
 					} else {
-						logger.Info("密码不匹配")
+						logger.Info("密码不匹配", storedPassword, ":", password)
 						sendBackDataPack(thisUser.connection, "login", "error", "密码不匹配", nil)
 					}
 				}
@@ -233,13 +233,13 @@ func reader(conn *websocket.Conn) {
 					return
 				}
 
-				selectrdUser, online := onlineUsers[int(userID)]
+				selectedUser, online := onlineUsers[int(userID)]
 				var userName string
 				if online {
-					userName = selectrdUser.Username
+					userName = selectedUser.Username
 				} else {
-					query := "SELECT userId FROM UserBasicData WHERE userID=?"
-					err := db.QueryRow(query, userID).Scan(userName)
+					query := "SELECT userId FROM UserBasicData WHERE userId=?"
+					err := db.QueryRow(query, int(userID)).Scan(userName)
 					if err != nil {
 						sendJSON(conn, map[string]interface{}{"command": "getOnlineUser", "status": "error", "message": "数据库查询错误"})
 						return
@@ -310,11 +310,11 @@ func reader(conn *websocket.Conn) {
 					}
 				} else {
 					recipientConnection := onlineUsers[recipientID].connection
-					sendJSON(recipientConnection, map[string]interface{}{"command": "receiveMessage", "message": message})
+					sendJSON(recipientConnection, map[string]interface{}{"command": msg.Command, "message": message, "content": msg.Content})
 					responseMessage = "已发送"
 				}
 
-				sendJSON(conn, map[string]interface{}{"command": "sendMessage", "status": "success", "message": responseMessage})
+				sendJSON(conn, map[string]interface{}{"command": msg.Command, "status": "success", "message": responseMessage})
 			default:
 				logger.Info("未知命令:", msg.Command)
 				sendJSON(conn, map[string]interface{}{"command": msg.Command, "status": "error", "message": "未知命令"})
