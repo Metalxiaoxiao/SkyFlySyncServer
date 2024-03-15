@@ -1,0 +1,13 @@
+{
+  "logLevel": 0,
+  "port": "8900",
+  "DataBaseSettings": {
+    "address": "localhost:3306",
+    "account": "root",
+    "password": "12345678"
+  },
+  "GlobalVariables": {},
+  "uploadRote": "/upload",
+  "wsRote": "/ws",
+  "downloadRote": "/download"
+}

@@ -10,6 +10,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"strconv"
 )
 
 const uploadDirectory = "./uploads"
@@ -165,6 +166,16 @@ func HandleFileDownload(w http.ResponseWriter, r *http.Request) {
 		}
 	}(file)
 
+	// 获取文件大小
+	fi, err := file.Stat()
+	if err != nil {
+		logger.Error("获取文件大小时出错: %v", err)
+		http.Error(w, "获取文件大小时出错", http.StatusInternalServerError)
+		return
+	}
+
+	// 设置 Content-Length
+	w.Header().Set("Content-Length", strconv.FormatInt(fi.Size(), 10))
 	w.Header().Set("Content-Type", "application/octet-stream")
 
 	_, err = io.Copy(w, file)
