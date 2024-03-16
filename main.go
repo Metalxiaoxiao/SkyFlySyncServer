@@ -15,14 +15,14 @@ import (
 	"github.com/gorilla/websocket"
 )
 
-type onlineDate struct {
+type onlineData struct {
 	Id         int    `json:"id"`
 	DeviceType int    `json:"deviceType"`
 	Username   string `json:"userName"`
 	connection *websocket.Conn
 }
 
-var onlineUsers = make(map[int]onlineDate) //在线id
+var onlineUsers = make(map[int]onlineData) //在线id
 
 var upgrade = websocket.Upgrader{
 	ReadBufferSize:  1024,
@@ -158,19 +158,20 @@ func reader(conn *websocket.Conn) {
 						logger.Info("登录成功")
 						sendBackDataPack(thisUser.connection, "login", "success", "登录成功", map[string]interface{}{"userId": thisUser.userId, "userName": thisUser.userName, "userTag": thisUser.tag})
 						thisUser.loginState = true
-						onlineUsers[thisUser.userId] = onlineDate{thisUser.userId, thisUser.deviceType, thisUser.userName, thisUser.connection}
-						err := sendMessageFromDB(thisUser.userId)
-						if err != nil {
-							logger.Info("拉取缓存错误：", err)
-							sendBackDataPack(thisUser.connection, "login", "error", "拉取缓存错误", nil)
-							return
-						}
+						onlineUsers[thisUser.userId] = onlineData{thisUser.userId, thisUser.deviceType, thisUser.userName, thisUser.connection}
+
 					} else {
 						logger.Info("密码不匹配", storedPassword, ":", password)
 						sendBackDataPack(thisUser.connection, "login", "error", "密码不匹配", nil)
 					}
 				}
-
+			case "getOfflineData":
+				err := sendMessageFromDB(thisUser.userId)
+				if err != nil {
+					logger.Info("拉取缓存错误：", err)
+					sendBackDataPack(thisUser.connection, "login", "error", "拉取缓存错误", nil)
+					return
+				}
 			case "register":
 				userName, ok := params["userName"].(string)
 				if !ok {
@@ -238,7 +239,7 @@ func reader(conn *websocket.Conn) {
 				if online {
 					userName = selectedUser.Username
 				} else {
-					query := "SELECT userId FROM UserBasicData WHERE userId=?"
+					query := "SELECT username FROM UserBasicData WHERE userId=?"
 					err := db.QueryRow(query, int(userID)).Scan(userName)
 					if err != nil {
 						sendJSON(conn, map[string]interface{}{"command": "getOnlineUser", "status": "error", "message": "数据库查询错误"})
