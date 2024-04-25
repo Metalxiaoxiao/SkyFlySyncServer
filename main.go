@@ -115,13 +115,15 @@ func reader(conn *websocket.Conn) {
 	}
 
 	thisUser.loginState = false
+
+	thisUser.loginState = false
+	timeout := time.NewTimer(10 * time.Second)
 	for {
 		_, p, err := conn.ReadMessage()
 		if err != nil {
 			logger.Error(err)
 			return
 		}
-
 		var msg Message
 		err = json.Unmarshal(p, &msg)
 		if err != nil {
@@ -131,11 +133,19 @@ func reader(conn *websocket.Conn) {
 
 		logger.Info("收到消息:", msg)
 		params := msg.Content.(map[string]interface{})
-		if thisUser.loginState == false {
+		if !thisUser.loginState {
 			switch msg.Command {
 			case "login":
 				userID, ok := params["userId"].(float64)
+				if !ok {
+					sendBackDataPack(thisUser.connection, "login", "error", "无效的参数", nil)
+					continue
+				}
 				password, ok := params["userPassword"].(string)
+				if !ok {
+					sendBackDataPack(thisUser.connection, "login", "error", "无效的参数", nil)
+					continue
+				}
 				deviceType, ok := params["deviceType"].(float64)
 				if !ok {
 					sendBackDataPack(thisUser.connection, "login", "error", "无效的参数", nil)
@@ -165,13 +175,7 @@ func reader(conn *websocket.Conn) {
 						sendBackDataPack(thisUser.connection, "login", "error", "密码不匹配", nil)
 					}
 				}
-			case "getOfflineData":
-				err := sendMessageFromDB(thisUser.userId)
-				if err != nil {
-					logger.Info("拉取缓存错误：", err)
-					sendBackDataPack(thisUser.connection, "login", "error", "拉取缓存错误", nil)
-					return
-				}
+
 			case "register":
 				userName, ok := params["userName"].(string)
 				if !ok {
@@ -223,10 +227,37 @@ func reader(conn *websocket.Conn) {
 				sendBackDataPack(conn, msg.Command, "error", "无权限执行命令", nil)
 			}
 		} else {
+			timeout.Reset(10 * time.Second)
+			// 每次读取消息时，重置定时器
+
+			go func() {
+				<-timeout.C
+				logger.Info("客户端已经掉线")
+				if thisUser.loginState {
+					delete(onlineUsers, thisUser.userId)
+					logger.Info("用户", thisUser.userName, "已从在线列表中删除")
+				}
+				conn.Close()
+			}()
 			switch msg.Command {
+			case "heart":
+				// timeStamp,_:= params["heart"].(float64)
+
+				response := map[string]interface{}{
+					"command":   "heart",
+					"timeStamp": time.Now().Local().UTC().Nanosecond(),
+				}
+				sendJSON(conn, response)
 			case "logout":
 				delete(onlineUsers, thisUser.userId)
 				sendBackDataPack(conn, "logout", "success", "完成", nil)
+			case "getOfflineData":
+				err := sendMessageFromDB(thisUser.userId)
+				if err != nil {
+					logger.Info("拉取缓存错误：", err)
+					sendBackDataPack(thisUser.connection, "login", "error", "拉取缓存错误", nil)
+					return
+				}
 			case "getOnlineUser":
 				userID, ok := params["userId"].(float64)
 				if !ok {
@@ -239,9 +270,10 @@ func reader(conn *websocket.Conn) {
 				if online {
 					userName = selectedUser.Username
 				} else {
-					query := "SELECT username FROM UserBasicData WHERE userId=?"
-					err := db.QueryRow(query, int(userID)).Scan(userName)
+					query := "SELECT userName FROM UserBasicData WHERE userID = ?"
+					err := db.QueryRow(query, int(userID)).Scan(&userName)
 					if err != nil {
+						logger.Error(err)
 						sendJSON(conn, map[string]interface{}{"command": "getOnlineUser", "status": "error", "message": "数据库查询错误"})
 						return
 					}
@@ -320,6 +352,7 @@ func reader(conn *websocket.Conn) {
 				logger.Info("未知命令:", msg.Command)
 				sendJSON(conn, map[string]interface{}{"command": msg.Command, "status": "error", "message": "未知命令"})
 			}
+
 		}
 	}
 }
